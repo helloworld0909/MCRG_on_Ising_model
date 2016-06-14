@@ -1,10 +1,11 @@
 from source import *
 
-PRE_HEAT = 10000
-TOTAL_STEP = 30000
+#conputation parameters
+PRE_HEAT = 3000
+TOTAL_STEP = 10000
 RG_ITERATION = 4
 
-Tc = 2 * J / math.log(1 + math.sqrt(2))
+Tc = J / 0.22165
 
 '''
 IsingGroup=np.empty((n,L,L),dtype=int)
@@ -63,7 +64,7 @@ for step in range(TOTAL_STEP):
     MCpass(Ising, Tc)
 print('MC finish')
 
-outputfile = open('T_L=' + str(L) + '_b=' + str(BLOCK) + '_n=' + str(TOTAL_STEP) + '.txt', 'w')
+outputfile = open('T3D_L=' + str(L) + '_b=' + str(BLOCK) + '_n=' + str(TOTAL_STEP) + '.txt', 'w')
 for m in range(RG_ITERATION):
     A, B = matrixAB(IsingGroup)
     T = np.dot(np.linalg.inv(B), A)

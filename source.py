@@ -2,48 +2,45 @@ import numpy as np
 import math
 import random
 
-# 常数
+# free parameters in common
 J = 1
-L = 128
+L = 64
 BLOCK = 2
+
 # fun_phi
 NUM_SYSTEM = 128  # num of independent systems
 STEP = 5  # sampling time divide
 nRG = 4  # RG iteration times
+
 # MCRG
-NUM_ITERATION = 4  # 0 for Odd interaction
+NUM_INTERACTION = 8  # 0 for Odd interaction
 
 
 def Initial():
     global L
-    Ising = np.empty((L, L), dtype=int)
+    Ising = np.empty((L, L, L), dtype=int)
     for i in range(L):
         for j in range(L):
-            Ising[i, j] = random.choice([-1, 1])
+            for k in range(L):
+                Ising[i, j, k] = random.choice([-1, 1])
     return Ising
 
 
-def Initialq():
-    global L
-    Ising = np.ones((L, L))
-    if random.choice([-1, 1]) == -1:
-        Ising *= -1
-    return Ising
-
-
-def Esingle(Ising, i, j):
+def Esingle(Ising, i, j, k):
     global J
     s = 0.0
-    if i == Ising.shape[0] - 1:  # 边界周期性条件
-        s += Ising[0, j]
-    else:
-        s += Ising[i + 1, j]
-    if j == Ising.shape[1] - 1:
-        s += Ising[i, 0]
-    else:
-        s += Ising[i, j + 1]
-    s += (Ising[i - 1, j] + Ising[i, j - 1])  # 对于下标-1，python会自动处理
-    return -Ising[i, j] * s * J
+    x = i + 1
+    y = j + 1
+    z = k + 1
+    if x == Ising.shape[0]:  # 边界周期性条件
+        x -= Ising.shape[0]
+    if y == Ising.shape[1]:
+        y -= Ising.shape[1]
+    if z == Ising.shape[2]:
+        z -= Ising.shape[2]
+    s += (Ising[i - 1, j, k] + Ising[i, j - 1, k] + Ising[i, j, k - 1] + Ising[x, j, k] + Ising[i, y, k] + Ising[
+        i, j, z])  # 对于下标-1，python会自动处理
+    return -Ising[i, j, k] * s * J
 
 
 def E(Ising):
@@ -51,38 +48,83 @@ def E(Ising):
     energy = 0.0
     for i in range(Ising.shape[0]):
         for j in range(Ising.shape[1]):
-            energy += Esingle(Ising, i, j)
+            for k in range(Ising.shape[2]):
+                energy += Esingle(Ising, i, j, k)
     return 0.5 * energy  # 总能量是每个能量之和的一半
 
 
-def Ssingle(Ising, i, j, alpha):  # 第alpha近的粒子对
+def Ssingle(Ising, i, j, k, alpha):  # 第alpha近的粒子对
     L1 = Ising.shape[0]
     L2 = Ising.shape[1]
+    L3 = Ising.shape[2]
     s = 0.0
     if alpha == 0:
-        s = Ising[i, j]
+        s = Ising[i, j, k]
     elif alpha == 1:
-        if i == L1 - 1:  # 边界周期性条件
-            s += Ising[0, j]
-        else:
-            s += Ising[i + 1, j]
-        if j == L2 - 1:
-            s += Ising[i, 0]
-        else:
-            s += Ising[i, j + 1]
-        s += (Ising[i - 1, j] + Ising[i, j - 1])  # 对于下标-1，python会自动处理
-        s *= (Ising[i, j] * 0.5)
+        x = i + 1
+        y = j + 1
+        z = k + 1
+        if x == L1:  # 边界周期性条件
+            x -= L1
+        if y == L2:
+            y -= L2
+        if z == L3:
+            z -= L3
+        s += (Ising[i - 1, j, k] + Ising[i, j - 1, k] + Ising[i, j, k - 1] + Ising[x, j, k] + Ising[i, y, k] + Ising[
+            i, j, z])  # 对于下标-1，python会自动处理
+        s *= (Ising[i, j, k] * 0.5)
     elif alpha == 2:
         x = i + 1
         y = j + 1
+        z = k + 1
         if x == L1:
             x -= L1
         if y == L2:
             y -= L2
-        s += (Ising[x, y] + Ising[x, j - 1] + Ising[i - 1, y] + Ising[i - 1, j - 1])
-        s *= (Ising[i, j] * 0.5)
-    elif alpha == 3:  # four spin
-        s = Ising[i, j] * Ising[i - 1, j] * Ising[i, j - 1] * Ising[i - 1, j - 1]
+        if z == L3:
+            z -= L3
+        s += (
+            Ising[x, y, k] + Ising[x, j - 1, k] + Ising[i - 1, y, k] + Ising[i - 1, j - 1, k] + Ising[x, j, z] + Ising[
+                x, j, k - 1] + Ising[i - 1, j, z] + Ising[i - 1, j, k - 1] + Ising[i, y, z] + Ising[i, j - 1, z] +
+            Ising[i, y, k - 1] + Ising[i, j - 1, k - 1])
+        s *= (Ising[i, j, k] * 0.5)
+    elif alpha == 3:
+        x = i + 1
+        y = j + 1
+        z = k + 1
+        if x == L1:
+            x -= L1
+        if y == L2:
+            y -= L2
+        if z == L3:
+            z -= L3
+        s += (
+            Ising[x, y, z] + Ising[i - 1, y, z] + Ising[x, j - 1, z] + Ising[x, y, k - 1] + Ising[i - 1, j - 1, z] +
+            Ising[i - 1, y, k - 1] + Ising[x, j - 1, k - 1] + Ising[i - 1, j - 1, k - 1])
+        s *= (Ising[i, j, k] * 0.5)
+    elif alpha == 4:  # four spins nearest neighbor
+        s += Ising[i, j - 1, k] * Ising[i, j, k - 1] * Ising[i, j - 1, k - 1] + Ising[i - 1, j, k] * Ising[
+            i, j, k - 1] * Ising[i - 1, j, k - 1] + Ising[i - 1, j, k] * Ising[i - 1, j, k] * Ising[i - 1, j - 1, k]
+        s *= Ising[i, j, k]
+    elif alpha == 5:  # four spins next-nearest neighbor
+        x = i + 1
+        y = j + 1
+        z = k + 1
+        if x == L1:
+            x -= L1
+        if y == L2:
+            y -= L2
+        if z == L3:
+            z -= L3
+        s += Ising[i, j - 1, k - 1] * Ising[i, j - 2, k] * Ising[i, j - 1, z] + Ising[i - 1, j, k - 1] * Ising[
+            i, j, k - 2] * Ising[x, j, k - 1] + Ising[i - 1, j - 1, k] * Ising[i - 2, j, k] * Ising[i - 1, y, k]
+        s *= Ising[i, j, k]
+    elif alpha == 6:  # four spins tetrahedral vertices in each cube
+        s += Ising[i - 1, j, k] * Ising[i, j - 1, k] * Ising[i, j, k - 1] * Ising[i - 1, j - 1, k - 1] + \
+             Ising[i - 1, j - 1, k] * Ising[i, j - 1, k - 1] * Ising[i - 1, j, k - 1] * Ising[i, j, k]
+    elif alpha == 7:
+        s += Ising[i - 2, j, k] + Ising[i, j - 2, k] + Ising[i, j, k - 2]
+        s *= Ising[i, j, k]
     else:
         print('Error,alpha==' + str(alpha))
         exit()
@@ -93,45 +135,50 @@ def S_alpha(Ising, alpha):
     s = 0.0
     for i in range(Ising.shape[0]):
         for j in range(Ising.shape[1]):
-            s += Ssingle(Ising, i, j, alpha)
+            for k in range(Ising.shape[2]):
+                s += Ssingle(Ising, i, j, k, alpha)
     return s
 
 
 def BlockIsing(Ising, b):
-    if Ising.shape[0] % b != 0 or Ising.shape[1] % b != 0:
+    if Ising.shape[0] % b != 0 or Ising.shape[1] % b != 0 or Ising.shape[2] % b != 0:
         return "error b"
-    IsingB = np.empty((Ising.shape[0] // b, Ising.shape[1] // b))
+    IsingB = np.empty((Ising.shape[0] // b, Ising.shape[1] // b, Ising.shape[2] // b))
     for i in range(Ising.shape[0] // b):
         for j in range(Ising.shape[1] // b):
-            if sum(sum(Ising[b * i:b * i + b, b * j:b * j + b])) > 0:
-                IsingB[i, j] = 1
-            elif sum(sum(Ising[b * i:b * i + b, b * j:b * j + b])) < 0:
-                IsingB[i, j] = -1
-            else:
-                IsingB[i, j] = random.choice([-1, 1])
+            for k in range(Ising.shape[2] // b):
+                s = sum(sum(sum(Ising[b * i:b * i + b, b * j:b * j + b, b * k:b * k + b])))
+                if s > 0:
+                    IsingB[i, j, k] = 1
+                elif s < 0:
+                    IsingB[i, j, k] = -1
+                else:
+                    IsingB[i, j, k] = random.choice([-1, 1])
     return IsingB
 
 
-def Pflip(Ising, i, j, T):
-    dH = -2 * Esingle(Ising, i, j)
+def Pflip(Ising, i, j, k, T):
+    dH = -2 * Esingle(Ising, i, j, k)
     return min(math.exp(-dH / T), 1)
 
 
 def MCpass(Ising, T):  # 一个pass随机取L*L次粒子
     global L
-    for n in range(L * L):
+    for n in range(L * L * L):
         i = random.randint(0, L - 1)
         j = random.randint(0, L - 1)
-        P = Pflip(Ising, i, j, T)
+        k = random.randint(0, L - 1)
+        P = Pflip(Ising, i, j, k, T)
         if P == 1:
-            Ising[i, j] *= -1
+            Ising[i, j, k] *= -1
         else:
             r = random.random()
             if r < P:
-                Ising[i, j] *= -1
+                Ising[i, j, k] *= -1
     return 0
 
 
+'''unfinished
 def Ebtw(Ising, Ising0, i, j):
     if Ising.shape[0] != Ising0.shape[0]:
         print('error')
@@ -156,13 +203,15 @@ def funE(Ising, Ising0):
         for j in range(Ising.shape[1]):
             sum += Ebtw(Ising, Ising0, i, j)
     return sum / N
+'''
 
 
 def mag(Ising):
     M = 0.0
     for i in range(Ising.shape[0]):
         for j in range(Ising.shape[1]):
-            M += Ising[i][j]
+            for k in range(Ising.shape[2]):
+                M += Ising[i][j][k]
     return M
 
 
@@ -199,20 +248,20 @@ def funPhi(IsingG, IsingG0):
 
 
 def matrixAB(IsingGroup):
-    global NUM_ITERATION, BLOCK
+    global NUM_INTERACTION, BLOCK
     n = len(IsingGroup)
-    matrixA = np.empty((NUM_ITERATION, NUM_ITERATION))
-    matrixB = np.empty((NUM_ITERATION, NUM_ITERATION))
-    S = np.zeros((NUM_ITERATION, n))
-    SR = np.zeros((NUM_ITERATION, n))
+    matrixA = np.empty((NUM_INTERACTION, NUM_INTERACTION))
+    matrixB = np.empty((NUM_INTERACTION, NUM_INTERACTION))
+    S = np.zeros((NUM_INTERACTION, n))
+    SR = np.zeros((NUM_INTERACTION, n))
 
     for j in range(n):
         Tmp = BlockIsing(IsingGroup[j], BLOCK)
-        for a in range(NUM_ITERATION):
+        for a in range(NUM_INTERACTION):
             S[a, j] = S_alpha(IsingGroup[j], a)
             SR[a, j] = S_alpha(Tmp, a)
-    for a in range(NUM_ITERATION):
-        for b in range(NUM_ITERATION):
+    for a in range(NUM_INTERACTION):
+        for b in range(NUM_INTERACTION):
             matrixA[a, b] = sum(S[b] * SR[a]) / n - sum(S[b]) * sum(SR[a]) / (n * n)
             matrixB[a, b] = sum(SR[b] * SR[a]) / n - sum(SR[b]) * sum(SR[a]) / (n * n)
     return matrixA, matrixB
